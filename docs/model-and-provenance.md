@@ -41,3 +41,7 @@ Result feasibility does not prove optimality. `PlanningService.assess` separatel
 - The Java model, service, immutable records, strict validation, checker, HTTP server, CLI and JUnit tests were written for ShiftForge with substantial Codex assistance. No Python service or interpreter is invoked by the application.
 
 No private company data, license file, credential, source virtual environment or original `.git` history is included. Gurobi is an external proprietary dependency governed by its own licensing; the Maven distribution is fetched during build rather than checked into this repository.
+
+## SparkJava and persistence extension —19 November2026
+
+The user requested adding SparkJava, PostgreSQL, jOOQ and real persistence integration tests. This extension replaces only the HTTP transport and adds append-only saved scenarios/runs and dashboard history flows. The model, algorithms and independent physical checker remain unchanged. Typed jOOQ fields/DSL are used without generated schema classes. New persistence behavior began with an integration test written before repository/config classes existed; its initial compile failure was observed, then the implementation and additional failure/UI tests were added. This records a specific test-first exercise, not a claim that every component was developed with TDD. Substantial Codex assistance and the native Gurobi license limit continue to apply. See[persistence design](persistence.md).

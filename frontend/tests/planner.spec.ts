@@ -20,6 +20,7 @@ type SolveRequest = { scenario: Scenario; algorithm: Algorithm; solver_time_limi
 async function replayApi(page: Page, mode: 'normal' | 'unavailable' | 'mismatched' = 'normal') {
   const requests: SolveRequest[] = [];
   const unmatched: SolveRequest[] = [];
+  await page.route('**/api/health', route => route.fulfill({ json: { history_enabled: false } }));
   await page.route('**/api/examples', route => route.fulfill({ json: [{ id: 'base', scenario: base }] }));
   await page.route('**/api/solve', async route => {
     const request = route.request().postDataJSON() as SolveRequest;
@@ -146,4 +147,53 @@ test('a response for a different input is rejected without discarding the other 
   expect((await download(page)).result).toEqual(results.find(r => r.algorithm === 'greedy' && isDeepStrictEqual(r.input, base)));
   expect(api.requests.map(r => r.algorithm)).toEqual(['gurobi', 'greedy']);
   expect(api.unmatched).toEqual([]);
+});
+
+test('saved scenarios and runs retain their snapshots and serialize planner actions', async ({ page }) => {
+  const scenarios: {id: string; name: string; scenario: Scenario; created_at: string}[] = [];
+  const runs: {id: string; scenario_id: string; scenario_name: string; result: Result; created_at: string}[] = [];
+  let runEntered: () => void = () => {};
+  let finishRun: () => void = () => {};
+  const entered = new Promise<void>(resolve => { runEntered = resolve; });
+  const finish = new Promise<void>(resolve => { finishRun = resolve; });
+  await page.route('**/api/health', route => route.fulfill({json: {history_enabled: true}}));
+  await page.route('**/api/examples', route => route.fulfill({json: [{id:'base', scenario:base}]}));
+  await page.route(/\/api\/scenarios(?:\?.*)?$/, async route => {
+    if (route.request().method() === 'POST') {
+      const scenario = route.request().postDataJSON() as Scenario;
+      expect(scenario).toEqual(base);
+      const saved = {id:'11111111-1111-1111-1111-111111111111',name:scenario.name,scenario,created_at:'2026-11-19T12:00:00Z'};
+      scenarios.push(saved); await route.fulfill({status:201,json:saved});
+    } else await route.fulfill({json:{items:scenarios,limit:20,offset:0,has_more:false}});
+  });
+  await page.route('**/api/scenarios/*', async route => route.fulfill({json:scenarios[0]}));
+  await page.route(/\/api\/runs(?:\?.*)?$/, async route => {
+    if(route.request().method() === 'POST') {
+      expect(route.request().postDataJSON()).toEqual({scenario_id:scenarios[0].id,algorithm:'greedy',solver_time_limit_seconds:10});
+      runEntered(); await finish;
+      const result = results.find(r => r.algorithm === 'greedy' && isDeepStrictEqual(r.input,base))!;
+      const saved={id:'22222222-2222-2222-2222-222222222222',scenario_id:scenarios[0].id,scenario_name:base.name,result,created_at:'2026-11-19T12:01:00Z'};
+      runs.push(saved); await route.fulfill({status:201,json:saved});
+    } else await route.fulfill({json:{items:runs.map(r=>({...r,algorithm:r.result.algorithm,status:r.result.status})),limit:20,offset:0,has_more:false}});
+  });
+  await page.route('**/api/runs/*', async route => route.fulfill({json:runs[0]}));
+  await page.goto('/');
+  await page.getByText('Saved scenarios & run history',{exact:true}).click();
+  await expect(page.getByRole('button',{name:'Save current scenario'})).toBeEnabled();
+  await page.getByRole('button',{name:'Save current scenario'}).click();
+  await expect(page.getByRole('button',{name:'Plan and save run'})).toBeEnabled();
+  await page.getByRole('button',{name:'Plan and save run'}).click();await entered;
+  await expect(page.getByRole('button',{name:'Run comparison',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Apply outage',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Save current scenario'})).toBeDisabled();
+  finishRun();
+  await expect(page.getByText('Run saved with status: Heuristic · feasible.',{exact:true})).toBeVisible();
+  await page.getByRole('combobox',{name:'Last shift',exact:true}).selectOption('10');
+  await page.getByRole('button',{name:'Apply outage',exact:true}).click();
+  await page.getByRole('button',{name:'Open run',exact:true}).click();
+  await expect(page.getByText('Opened saved run with status: Heuristic · feasible.',{exact:true})).toBeVisible();
+  expect((await download(page)).result).toEqual(runs[0].result);
+  await page.getByRole('button',{name:'Open scenario',exact:true}).click();
+  await expect(page.getByText('Opened saved scenario:',{exact:false})).toBeVisible();
+  expect(scenarios[0].scenario).toEqual(base);
 });

@@ -5,7 +5,7 @@ import java.nio.file.*;
 import java.util.*;
 import static com.shiftforge.planner.Domain.*;
 
-/** Dependency-free CLI entry point; HTTP and CLI share the same domain service. */
+/** CLI entry point; HTTP and CLI share the same domain service. */
 public final class Main {
     private Main(){}
     public static void main(String[] args)throws Exception {
@@ -17,6 +17,12 @@ public final class Main {
             System.out.println("ShiftForge\n  serve [--host 127.0.0.1] [--port 8012] [--ui frontend/dist]\n  solve (--example base|tiny|lookahead | --input FILE) [--algorithm gurobi|greedy] [--time-limit 10] [--outage-cell C3 --outage-start 5 --outage-end 6] [--output FILE]\n  example base|tiny|lookahead [--output FILE]\n  validate FILE\n  check RESULT_FILE");return 0;
         }
         String command=args[0];
+        if("healthcheck".equals(command)) {
+            var client=java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(2)).build();
+            var response=client.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:8012/api/health"))
+                .timeout(java.time.Duration.ofSeconds(2)).build(),java.net.http.HttpResponse.BodyHandlers.discarding());
+            return response.statusCode()==200?0:1;
+        }
         if("validate".equals(command)) {
             Inputs.require(args.length==2,"validate requires one input file");
             Inputs.scenario(Json.tree(Files.readString(Path.of(args[1]))));System.out.println("Scenario is valid");return 0;
@@ -35,7 +41,9 @@ public final class Main {
                 allowed(options,"host","port","ui");
                 int port=parseInt(options.getOrDefault("port","8012"),"port");Inputs.require(port>=0&&port<=65535,"port out of range");
                 String host=options.getOrDefault("host","127.0.0.1");
-                PlannerServer server=new PlannerServer(host,port,options.containsKey("ui")?Path.of(options.get("ui")):null,new PlanningService());
+                HistoryStore history=DatabaseConfig.fromEnvironment().map(HistoryStore::new).orElse(null);
+                if(history!=null)history.migrate();
+                PlannerServer server=new PlannerServer(host,port,options.containsKey("ui")?Path.of(options.get("ui")):null,new PlanningService(),history);
                 Runtime.getRuntime().addShutdownHook(new Thread(server::close));server.start();
                 System.out.println("ShiftForge listening on http://"+host+":"+server.port());
                 new java.util.concurrent.CountDownLatch(1).await();return 0;

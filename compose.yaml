@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: shiftforge
+      POSTGRES_USER: shiftforge
+      POSTGRES_PASSWORD: local-demo-only
+    ports:
+      - "127.0.0.1:${SHIFTFORGE_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - history-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shiftforge -d shiftforge"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  app:
+    build: .
+    environment:
+      SHIFTFORGE_DATABASE_URL: jdbc:postgresql://postgres:5432/shiftforge
+      SHIFTFORGE_DATABASE_USER: shiftforge
+      SHIFTFORGE_DATABASE_PASSWORD: local-demo-only
+    ports:
+      - "127.0.0.1:${SHIFTFORGE_APP_PORT:-8012}:8012"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "java", "-jar", "/app/shiftforge.jar", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+volumes:
+  history-data:

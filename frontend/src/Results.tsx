@@ -9,6 +9,7 @@ const statuses: Record<Result['status'], string> = {
   optimal: 'Optimal', feasible: 'Feasible · unproven', heuristic_feasible: 'Heuristic · feasible',
   no_solution: 'No incumbent', solver_unavailable: 'Solver unavailable', solver_error: 'Solver error', invalid_result: 'Invalid result',
 };
+export const statusName = (status: Result['status']) => statuses[status];
 const accepted = (result?: Result | null) => result?.solution && result.validation?.valid ? result.solution : null;
 
 export function ComparisonCard({ kind, comparison, selected, stale, running, onSelect }: {

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { solve } from './api';
+import { History } from './History';
 import { sameInput } from './snapshot';
-import { ComparisonCard, MethodDifference, ResultDetails, methodName, number } from './Results';
-import type { Algorithm, Comparison, Example, Scenario, ScenarioKind } from './types';
+import { ComparisonCard, MethodDifference, ResultDetails, methodName, statusName, number } from './Results';
+import type { Algorithm, Comparison, Example, Result, Scenario, ScenarioKind } from './types';
 
 const copy = (scenario: Scenario): Scenario => structuredClone(scenario);
 const same = sameInput;
@@ -25,6 +26,7 @@ export default function App() {
   const [inspected, setInspected] = useState<ScenarioKind>('original');
   const [method, setMethod] = useState<Algorithm>('gurobi');
   const [busy, setBusy] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const busyRef = useRef(false);
   const original = examples.find(example => example.id === exampleId)?.scenario;
@@ -59,6 +61,19 @@ export default function App() {
     }).finally(() => { window.clearTimeout(timeout); if (active) setLoadingExamples(false); });
     return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
   }, [loadAttempt]);
+
+  function openScenario(scenario: Scenario, id: string) {
+    const saved = { id: `saved-${id}`, scenario: copy(scenario) };
+    setExamples(previous => [...previous.filter(item => item.id !== saved.id), saved]);
+    selectExample(saved);
+  }
+  function openRun(result: Result, id: string) {
+    openScenario(result.input, id);
+    const captured: Comparison = { input: copy(result.input), label: `Saved run ${id}`, gurobi: null, greedy: null };
+    captured[result.algorithm] = { result, error: null };
+    setRuns({ original: captured, outage: null }); setMethod(result.algorithm);
+    setProgress(`Opened saved ${methodName(result.algorithm)} run: ${statusName(result.status)}.`);
+  }
 
   function applyOutage() {
     if (!original || busyRef.current) return;
@@ -102,19 +117,20 @@ export default function App() {
       <div className="page-heading"><div><p className="eyebrow">Operations research · Scenario analysis</p><h1>Plan the next shift<span>.</span></h1><p className="intro">Allocate production across cells and shifts.<br className="desktop-break" /> Explore what changes when capacity goes offline.</p></div><div className="objective-note"><span className="eyebrow">Planning objective</span><strong>Minimize accumulated backlog</strong><span>Whole units · Fixed crews · Ordered shifts</span></div></div>
       {loadingExamples ? <div role="status" className="notice">Loading bundled scenarios…</div> : loadError ? <div role="alert" className="notice error"><strong>Could not load the local planner</strong><p>{loadError}</p><button className="secondary" onClick={() => setLoadAttempt(value => value + 1)}>Retry connection</button></div> : draft && original ? <>
         <section className="panel scenario-panel" aria-labelledby="scenario-title"><div className="panel-heading"><div className="number-heading"><span className="section-number">01</span><div><h2 id="scenario-title">Define the scenario</h2><p>Start with an example. Optionally remove one cell’s capacity over a shift window.</p></div></div><span className={`tag ${kind === 'outage' ? 'warning' : ''}`}>{kind === 'original' ? 'Original capacity' : 'Outage applied'}</span></div>
-          <fieldset disabled={busy} className="controls-fieldset"><legend className="sr-only">Scenario and outage controls</legend><div className="scenario-controls"><label className="example-select">Example<select value={exampleId} onChange={event => { const example = examples.find(item => item.id === event.target.value); if (example) selectExample(example); }}>{examples.map(example => <option value={example.id} key={example.id}>{example.scenario.name}</option>)}</select></label><div className="scenario-facts"><span><strong>{draft.products.length}</strong> products</span><span><strong>{draft.cells.length}</strong> cells</span><span><strong>{draft.shifts.length}</strong> shifts</span></div></div>
+          <fieldset disabled={busy || historyBusy} className="controls-fieldset"><legend className="sr-only">Scenario and outage controls</legend><div className="scenario-controls"><label className="example-select">Example<select value={exampleId} onChange={event => { const example = examples.find(item => item.id === event.target.value); if (example) selectExample(example); }}>{examples.map(example => <option value={example.id} key={example.id}>{example.scenario.name}</option>)}</select></label><div className="scenario-facts"><span><strong>{draft.products.length}</strong> products</span><span><strong>{draft.cells.length}</strong> cells</span><span><strong>{draft.shifts.length}</strong> shifts</span></div></div>
           <div className="outage-controls"><div className="outage-label"><strong>Capacity outage</strong><small>One window; replaces the previous edit.</small></div><label>Cell<select value={outageCell} onChange={event => setOutageCell(event.target.value)}>{draft.cells.map(cell => <option key={cell.id}>{cell.id}</option>)}</select></label><label>First shift<select value={start} onChange={event => { setStart(Number(event.target.value)); setControlMessage(''); }}>{shifts.map(shift => <option key={shift.id} value={shift.index}>{shift.id}</option>)}</select></label><span className="range-separator" aria-hidden="true">→</span><label>Last shift<select value={end} onChange={event => { setEnd(Number(event.target.value)); setControlMessage(''); }}>{shifts.map(shift => <option key={shift.id} value={shift.index}>{shift.id}</option>)}</select></label><button className="secondary apply-button" onClick={applyOutage}>Apply outage</button><button className="text-button reset-button" onClick={reset}>Reset input</button></div></fieldset>
-          <div className="run-row"><div><strong className="current-label">Current input: {kind === 'original' ? 'original capacity' : outageLabel}</strong><p>{kind === 'original' ? 'Run once to save a reference before testing an outage.' : 'Original inputs are preserved. Only the selected capacity entries are zeroed.'}</p></div><button className="primary" disabled={busy} onClick={runComparison}>{busy ? <><span className="spinner" aria-hidden="true" /> Running comparison</> : <>Run comparison <span aria-hidden="true">→</span></>}</button></div>
+          <div className="run-row"><div><strong className="current-label">Current input: {kind === 'original' ? 'original capacity' : outageLabel}</strong><p>{kind === 'original' ? 'Run once to save a reference before testing an outage.' : 'Original inputs are preserved. Only the selected capacity entries are zeroed.'}</p></div><button className="primary" disabled={busy || historyBusy} onClick={runComparison}>{busy ? <><span className="spinner" aria-hidden="true" /> Running comparison</> : <>Run comparison <span aria-hidden="true">→</span></>}</button></div>
           <div className="live-status" aria-live="polite" role="status">{busy ? progress : controlMessage || progress || 'Gurobi, then greedy. Both methods use the same captured input.'}</div>
           <details className="scenario-details"><summary>Inspect current inputs &amp; model assumptions</summary><div className="details-body"><div className="assumption-grid"><div><h3>Aggregate allocation</h3><p>Products share eligible cell minutes. An active cell reserves its full crew for the shift. This is not an operation-by-operation schedule.</p></div><div><h3>Single objective</h3><p>Each overdue piece counts once at every shift end. Inventory and active cell-shifts are descriptive; equal-backlog plans can differ on both.</p></div><div><h3>Synthetic examples</h3><p>Invented inputs with no factory or company data. Unlimited materials and storage; no setup losses, yield losses, or named-worker assignments.</p></div></div><div className="table-scroll"><table className="input-table"><caption>Current available machine minutes</caption><thead><tr><th>Cell · crew</th>{shifts.map(shift => <th key={shift.id}>{shift.id}</th>)}</tr></thead><tbody>{draft.cells.map(cell => <tr key={cell.id}><th scope="row">{cell.id} · {cell.crew_operators}</th>{shifts.map(shift => { const capacity = draft.capacity.find(row => row.cell_id === cell.id && row.shift_id === shift.id); return <td key={shift.id} className={capacity?.available_machine_minutes === 0 ? 'has-backlog' : ''}>{number(capacity?.available_machine_minutes)}</td>; })}</tr>)}</tbody></table></div><details className="input-details"><summary>Current scenario JSON</summary><pre>{JSON.stringify(draft, null, 2)}</pre></details></div></details>
         </section>
-        <section className="comparison-section" aria-labelledby="comparison-title"><div className="section-heading"><div className="number-heading"><span className="section-number">02</span><div><h2 id="comparison-title">Compare scenarios</h2><p>Keep the method fixed when comparing original and outage outcomes.</p></div></div></div><div className="comparison-grid">{(['original', 'outage'] as ScenarioKind[]).map(runKind => <ComparisonCard key={runKind} kind={runKind} comparison={runs[runKind]} selected={inspected === runKind} stale={runKind === kind && !!runs[runKind] && !same(runs[runKind]!.input, draft)} running={busy && runKind === kind} onSelect={() => setInspected(runKind)} />)}</div></section>
+        <section className="comparison-section" aria-labelledby="comparison-title"><div className="section-heading"><div className="number-heading"><span className="section-number">02</span><div><h2 id="comparison-title">Compare scenarios</h2><p>Keep the method fixed when comparing original and outage outcomes.</p></div></div></div><div className="comparison-grid">{(['original', 'outage'] as ScenarioKind[]).map(runKind => <ComparisonCard key={runKind} kind={runKind} comparison={runs[runKind]} selected={inspected === runKind} stale={runKind === kind && !!runs[runKind] && !same(runs[runKind]!.input, draft)} running={busy && runKind === kind} onSelect={() => { if (!busyRef.current) setInspected(runKind); }} />)}</div></section>
         <section className="panel results-panel" aria-labelledby="results-title"><div className="panel-heading"><div className="number-heading"><span className="section-number">03</span><div><h2 id="results-title">Inspect the plan</h2><p>{title(inspected)}{comparison ? ` · ${comparison.label}` : ' · No saved run'}</p></div></div><div className="method-switch" role="group" aria-label="Result method">{(['gurobi', 'greedy'] as Algorithm[]).map(algorithm => <button key={algorithm} aria-pressed={method === algorithm} onClick={() => setMethod(algorithm)}>{methodName(algorithm)}</button>)}</div></div>
           {stale && <div className="notice warning" role="status"><strong>Saved results are stale.</strong> The current input has changed. Run the comparison to refresh; displayed metrics and downloads still use the saved input.</div>}
           {comparison && inspected !== kind && <div className="notice neutral">Viewing the saved {inspected} reference. The current editable input is the {kind} scenario.</div>}
           {comparison && <MethodDifference comparison={comparison} />}
           <ResultDetails outcome={comparison?.[method] ?? null} method={method} kind={inspected} />
         </section>
+        <History draft={draft} disabled={busy} onScenario={openScenario} onRun={openRun} onBusyChange={value => { busyRef.current = value; setHistoryBusy(value); }} />
       </> : null}
       <footer><strong>ShiftForge</strong><span>Synthetic aggregate planning · Local prototype · Backlog is the only objective</span></footer>
     </main>

@@ -2,7 +2,7 @@
 
 **Plan production across cells and shifts when machine capacity and operators are limited.** ShiftForge combines a native Java 21 planning service with a React dashboard for comparing synthetic equipment-outage scenarios.
 
-The Java backend implements a deterministic greedy dispatcher, a Gurobi mixed-integer optimization model, strict JSON validation, and an arithmetic result checker. Backlog is the only optimized measure; inventory and active cells are descriptive. This is aggregate allocation with fictional inputs, not a detailed machine schedule or a deployed factory system.
+The Java backend uses **SparkJava**, with **PostgreSQL/jOOQ** for optional scenario and run history. It implements a deterministic greedy dispatcher, a Gurobi mixed-integer optimization model, strict JSON validation, and an arithmetic result checker. Backlog is the only optimized measure; inventory and active cells are descriptive. This is aggregate allocation with fictional inputs, not a detailed machine schedule or a deployed factory system.
 
 ![ShiftForge dashboard with a checked greedy plan](docs/dashboard.png)
 
@@ -39,6 +39,16 @@ java -jar target/shiftforge.jar serve --ui frontend/dist
 ```
 
 Open **http://127.0.0.1:8012**. There is no Python runtime dependency.
+
+## Saved scenarios and run history
+
+Start the full local stack with `docker compose up --build`, then open **http://127.0.0.1:8012**. Expand **Saved scenarios & run history** to save the current input, plan a saved scenario, and reopen previous results. PostgreSQL keeps immutable input/result snapshots in a named volume across app/database restarts. `docker compose down` retains the data; use `-v` only to intentionally delete it.
+
+The API uses SparkJava routing, filters and JSON errors. Persistence uses typed jOOQ DSL, PostgreSQL JSONB, foreign keys and transactions. It has create/list/get endpoints for scenarios and runs, bounded pagination, and explicit503 failures when history is unavailable. Ephemeral planning/CLI still work without a configured database. See [persistence design, API, setup and limits](docs/persistence.md).
+
+For a saved run, **201 means its record committed**, not necessarily a successful optimizer plan. Native Gurobi failure diagnostics can be saved and reopened; inspect `result.status`. The existing ephemeral solve interface is unchanged.
+
+![Saved scenarios and run history](docs/history.png)
 
 ## Gurobi optimization
 
@@ -83,12 +93,13 @@ java -jar target/shiftforge.jar help
 | `GurobiOptimizer` | Native Java formulation, bounded integer decisions, optimization and raw-state extraction |
 | `Plans` | Dense reporting and solver-independent arithmetic validation |
 | `PlanningService` | Shared CLI/API logic and honest solver termination/status interpretation |
-| `PlannerServer`, `Main` | Java HTTP API and CLI; no framework or Python subprocess |
+| `PlannerServer`, `Main` | SparkJava HTTP routes/filters/errors and Java CLI; no Python subprocess |
+| `HistoryStore`, `DatabaseConfig`, SQL migration | PostgreSQL snapshots, typed jOOQ DSL and transactional persistence |
 | `frontend` | React/TypeScript dashboard, captured-input comparison and exact-input JSON exports |
 
 Inputs are bounded to eight products, six cells and twenty shifts. Quantities are strict integers: booleans, numeric strings, fractions, unknown fields, duplicate keys and incomplete capacity/demand matrices are rejected. Results preserve raw solver activity and stock states so the checker can detect inconsistencies.
 
-The API binds to loopback by default. Each server process has one nonblocking planning slot; concurrent solve requests receive **409**. Request bodies are limited to 1 MiB. The optional container listens on all interfaces inside the container; publish it only on host loopback as shown below. No authentication, persistent database, distributed locking, job queue, multi-process coordination or restart recovery is claimed.
+The API binds to loopback by default. Each server process has one nonblocking planning slot; concurrent solve requests receive **409**. Request bodies are limited to 1 MiB. The optional container listens on all interfaces inside the container; publish it only on host loopback as shown below. History records persist in PostgreSQL when configured; in-flight computation does not resume after a restart. No authentication, distributed locking, job queue or multi-process coordination is claimed.
 
 ### HTTP API
 
@@ -102,6 +113,7 @@ Invalid requests receive **422**, a busy planner **409**, unavailable Gurobi **5
 
 ```bash
 ./mvnw verify                            # license-free tests, then executable JAR
+./mvnw -Ppostgres verify                 # requires a real configured PostgreSQL test database
 ./mvnw -Pgurobi test                     # also attempts native tests; inspect skips
 ./mvnw -Pgurobi -DrequireGurobi=true test # requires real native solves
 cd frontend
@@ -110,7 +122,7 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-The JUnit suite covers strict inputs, five complete Python-reference greedy exports, infeasible/tampered results, solver status interpretation, HTTP error responses, concurrency and lock recovery. Browser replay tests exercise stale snapshots, exact downloads and mismatched/failing responses. CI runs the license-free Java suite, a real greedy CLI solve/check, dashboard build and browser replay tests on Java 21/Node 24.
+The JUnit suite covers strict inputs, five complete Python-reference greedy exports, infeasible/tampered results, solver status interpretation, HTTP error responses, concurrency and lock recovery. Browser replay tests exercise stale snapshots, exact downloads and mismatched/failing responses. CI runs the license-free Java suite, **required real PostgreSQL integration tests**, a real greedy CLI solve/check, dashboard build and browser replay tests on Java 21/Node 24. The `postgres` profile fails if its database is not configured; it does not silently skip persistence checks. Configure `SHIFTFORGE_TEST_DATABASE_URL`, `SHIFTFORGE_TEST_DATABASE_USER` and `SHIFTFORGE_TEST_DATABASE_PASSWORD` for local integration tests; see [persistence notes](docs/persistence.md).
 
 See [model and provenance](docs/model-and-provenance.md) for equations and source boundaries, and [verification](docs/verification.md) for actual checks and limitations. No benchmark speedup, production scale or optimizer performance claim is made for this implementation.
 
@@ -125,4 +137,4 @@ The image builds the frontend and backend, runs default Java tests, and serves b
 
 ## Origin and contribution status
 
-ShiftForge adapts George Trump's [Factory Capacity Planner](https://github.com/gergetrump/factory-capacity-planner) into a separate native Java backend. The mathematical problem, synthetic examples, dashboard and historical UI replay fixtures derive from that project; it is one evolving portfolio project, not unrelated independent work. The Java service, validation, result checking, CLI and tests were implemented with substantial Codex assistance. George's personal walkthrough and independent modification of this implementation have not yet been established. The original project remains separate and unchanged.
+ShiftForge adapts George Trump's [Factory Capacity Planner](https://github.com/gergetrump/factory-capacity-planner) into a separate native Java backend. The mathematical problem, synthetic examples, dashboard and historical UI replay fixtures derive from that project; it is one evolving portfolio project, not unrelated independent work. The Java service, validation, result checking, CLI, SparkJava/persistence extension and tests were implemented with substantial Codex assistance. George's personal walkthrough and independent modification of this implementation have not yet been established. The original project remains separate and unchanged.

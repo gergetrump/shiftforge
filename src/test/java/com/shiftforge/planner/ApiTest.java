@@ -50,4 +50,25 @@ class ApiTest {
             assertEquals(503,pending.get(5,TimeUnit.SECONDS).statusCode());assertEquals(200,post(server,body("greedy")).statusCode());
         }
     }
+    @Test void staticFilesCannotEscapeThroughSymlinks(@org.junit.jupiter.api.io.TempDir java.nio.file.Path temp)throws Exception {
+        var ui=java.nio.file.Files.createDirectory(temp.resolve("ui"));
+        java.nio.file.Files.writeString(ui.resolve("index.html"),"<h1>Planner</h1>");
+        var outside=java.nio.file.Files.writeString(temp.resolve("outside.txt"),"not a public asset");
+        java.nio.file.Files.createSymbolicLink(ui.resolve("escape.txt"),outside);
+        try(PlannerServer server=new PlannerServer("127.0.0.1",0,ui,new PlanningService())) {
+            server.start();
+            var root=client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+server.port()+"/")).build(),HttpResponse.BodyHandlers.ofString());
+            assertEquals(200,root.statusCode());assertTrue(root.body().contains("Planner"));
+            var escape=client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+server.port()+"/escape.txt")).build(),HttpResponse.BodyHandlers.ofString());
+            assertEquals(404,escape.statusCode());assertFalse(escape.body().contains("not a public asset"));
+        }
+    }
+    @Test void oversizedBodyReturnsJson413AndPlannerRemainsUsable()throws Exception {
+        try(PlannerServer server=new PlannerServer("127.0.0.1",0,null,new PlanningService())) {
+            server.start();var tooLarge=post(server," ".repeat(1_048_577));
+            assertEquals(413,tooLarge.statusCode());assertTrue(Json.tree(tooLarge.body()).has("detail"));
+            assertEquals(200,post(server,body("greedy")).statusCode());
+        }
+    }
+
 }
