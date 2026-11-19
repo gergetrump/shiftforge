@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "name": "Tiny two-product example",
+  "data_origin": "synthetic",
+  "products": [
+    {
+      "id": "A",
+      "initial_inventory_units": 0
+    },
+    {
+      "id": "B",
+      "initial_inventory_units": 0
+    }
+  ],
+  "cells": [
+    {
+      "id": "C1",
+      "crew_operators": 1
+    },
+    {
+      "id": "C2",
+      "crew_operators": 1
+    }
+  ],
+  "processing_times": [
+    {
+      "product_id": "A",
+      "cell_id": "C1",
+      "minutes_per_unit": 1
+    },
+    {
+      "product_id": "B",
+      "cell_id": "C2",
+      "minutes_per_unit": 1
+    }
+  ],
+  "shifts": [
+    {
+      "id": "T1",
+      "index": 1,
+      "duration_minutes": 2,
+      "available_operators": 1
+    },
+    {
+      "id": "T2",
+      "index": 2,
+      "duration_minutes": 2,
+      "available_operators": 1
+    }
+  ],
+  "capacity": [
+    {
+      "cell_id": "C1",
+      "shift_id": "T1",
+      "available_machine_minutes": 2
+    },
+    {
+      "cell_id": "C2",
+      "shift_id": "T1",
+      "available_machine_minutes": 2
+    },
+    {
+      "cell_id": "C1",
+      "shift_id": "T2",
+      "available_machine_minutes": 2
+    },
+    {
+      "cell_id": "C2",
+      "shift_id": "T2",
+      "available_machine_minutes": 2
+    }
+  ],
+  "demand": [
+    {
+      "product_id": "A",
+      "shift_id": "T1",
+      "due_units": 2
+    },
+    {
+      "product_id": "A",
+      "shift_id": "T2",
+      "due_units": 0
+    },
+    {
+      "product_id": "B",
+      "shift_id": "T1",
+      "due_units": 0
+    },
+    {
+      "product_id": "B",
+      "shift_id": "T2",
+      "due_units": 2
+    }
+  ]
+}

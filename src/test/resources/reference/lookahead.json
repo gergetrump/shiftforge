@@ -1,0 +1,157 @@
+{
+  "format_version": 1,
+  "input": {
+    "schema_version": 1,
+    "name": "Lookahead: prepare before an outage",
+    "data_origin": "synthetic",
+    "products": [
+      {
+        "id": "A",
+        "initial_inventory_units": 0
+      }
+    ],
+    "cells": [
+      {
+        "id": "C1",
+        "crew_operators": 1
+      }
+    ],
+    "processing_times": [
+      {
+        "product_id": "A",
+        "cell_id": "C1",
+        "minutes_per_unit": 1
+      }
+    ],
+    "shifts": [
+      {
+        "id": "T1",
+        "index": 1,
+        "duration_minutes": 1,
+        "available_operators": 1
+      },
+      {
+        "id": "T2",
+        "index": 2,
+        "duration_minutes": 1,
+        "available_operators": 1
+      }
+    ],
+    "capacity": [
+      {
+        "cell_id": "C1",
+        "shift_id": "T1",
+        "available_machine_minutes": 1
+      },
+      {
+        "cell_id": "C1",
+        "shift_id": "T2",
+        "available_machine_minutes": 0
+      }
+    ],
+    "demand": [
+      {
+        "product_id": "A",
+        "shift_id": "T1",
+        "due_units": 0
+      },
+      {
+        "product_id": "A",
+        "shift_id": "T2",
+        "due_units": 1
+      }
+    ]
+  },
+  "algorithm": "greedy",
+  "status": "heuristic_feasible",
+  "settings": {},
+  "solver": null,
+  "solution": {
+    "objective": 1,
+    "production": [
+      {
+        "product_id": "A",
+        "cell_id": "C1",
+        "shift_id": "T1",
+        "units": 0
+      },
+      {
+        "product_id": "A",
+        "cell_id": "C1",
+        "shift_id": "T2",
+        "units": 0
+      }
+    ],
+    "activity": [
+      {
+        "cell_id": "C1",
+        "shift_id": "T1",
+        "active": 0
+      },
+      {
+        "cell_id": "C1",
+        "shift_id": "T2",
+        "active": 0
+      }
+    ],
+    "stock": [
+      {
+        "product_id": "A",
+        "shift_id": "T1",
+        "inventory_units": 0,
+        "backlog_units": 0
+      },
+      {
+        "product_id": "A",
+        "shift_id": "T2",
+        "inventory_units": 0,
+        "backlog_units": 1
+      }
+    ],
+    "metrics": {
+      "backlog_unit_shifts": 1,
+      "final_backlog_units": 1,
+      "active_cell_shifts": 0,
+      "inventory_unit_shifts": 0,
+      "produced_units": 0,
+      "machine_minutes_used": 0,
+      "machine_minutes_available": 1,
+      "capacity_utilization": 0.0,
+      "cell_usage": [
+        {
+          "cell_id": "C1",
+          "shift_id": "T1",
+          "used_minutes": 0,
+          "available_minutes": 1,
+          "utilization": 0.0
+        },
+        {
+          "cell_id": "C1",
+          "shift_id": "T2",
+          "used_minutes": 0,
+          "available_minutes": 0,
+          "utilization": null
+        }
+      ],
+      "staffing": [
+        {
+          "shift_id": "T1",
+          "reserved_operators": 0,
+          "available_operators": 1,
+          "reservation_share": 0.0
+        },
+        {
+          "shift_id": "T2",
+          "reserved_operators": 0,
+          "available_operators": 1,
+          "reservation_share": 0.0
+        }
+      ]
+    }
+  },
+  "validation": {
+    "valid": true,
+    "errors": []
+  },
+  "error": null
+}

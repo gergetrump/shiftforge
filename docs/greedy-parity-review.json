@@ -1,0 +1,106 @@
+{
+  "cases": [
+    {
+      "case": "tiny",
+      "greedy_objective": 0
+    },
+    {
+      "case": "lookahead",
+      "greedy_objective": 1
+    },
+    {
+      "case": "base",
+      "greedy_objective": 51
+    },
+    {
+      "case": "short_outage",
+      "greedy_objective": 128
+    },
+    {
+      "case": "full_outage",
+      "greedy_objective": 550
+    },
+    {
+      "case": "random-0",
+      "greedy_objective": 3
+    },
+    {
+      "case": "random-1",
+      "greedy_objective": 3
+    },
+    {
+      "case": "random-2",
+      "greedy_objective": 20
+    },
+    {
+      "case": "random-3",
+      "greedy_objective": 4
+    },
+    {
+      "case": "random-4",
+      "greedy_objective": 8
+    },
+    {
+      "case": "random-5",
+      "greedy_objective": 23
+    },
+    {
+      "case": "random-6",
+      "greedy_objective": 43
+    },
+    {
+      "case": "random-7",
+      "greedy_objective": 7
+    },
+    {
+      "case": "random-8",
+      "greedy_objective": 2
+    },
+    {
+      "case": "random-9",
+      "greedy_objective": 22
+    },
+    {
+      "case": "random-10",
+      "greedy_objective": 10
+    },
+    {
+      "case": "random-11",
+      "greedy_objective": 1
+    },
+    {
+      "case": "random-12",
+      "greedy_objective": 12
+    },
+    {
+      "case": "random-13",
+      "greedy_objective": 0
+    },
+    {
+      "case": "random-14",
+      "greedy_objective": 3
+    }
+  ],
+  "invalid": [
+    "bool-version",
+    "float-units",
+    "unknown-field",
+    "missing-capacity",
+    "duplicate-product",
+    "bad-time-limit",
+    "bool-time-limit",
+    "bad-algorithm",
+    "null-scenario"
+  ],
+  "solver_unavailable_cases": [
+    "tiny",
+    "lookahead",
+    "base",
+    "random-0",
+    "random-1",
+    "random-2",
+    "random-3",
+    "random-4"
+  ],
+  "passed": true
+}
